@@ -40,10 +40,24 @@ Now we’ll build the north curve.  Finally!  Deep breath.. we move to “close 
 Note the north rectangle (green) does not touch the full circle (green).  You would need to adjust the height of this part to get it to hit all bits of the curve.  Remember, we’re trying to have forces go straight down from the platform.  The simplest approximation of this is to base it on a flat orientation.
 ![North Rectangle](images/north-rectangle.png)
 
-## North Curve: Good Enough
-There are some thing that could be optimized about this.  But keep in mind this is about rotating around the axis (blue).  And we have the cone (yellow) that provides a surface.  If we simply ensure that our north curve (orange) roles on something that represents the outside of the cone we’re good.  So I leave optimizations to the read and am going with the theory that this is “good enough”.
+## North Curve: Pretty Good
+There are some thing that could be optimized about this.  But keep in mind this is about rotating around the axis (blue).  And we have the cone (yellow) that provides a surface.  If we simply ensure that our north curve (orange) roles on something that represents the outside of the cone we’re good.  
 ![North Curve](images/north-curve.png)
 
+## North Curve: Fancy
+I couldn't leave it alone though.  When looking at placement for the bearing under the north curve (orange) I just didn't like that it moved across that curve.  So we get fancy.  I'll explain it but not going to show anything but the final product (purple).
+
+1. draw the circle with a height that's acceptable for it to run on the bearing(s)
+2. cut the top off at the bottom of the platform
+3. cut the inside portion of the remainder off so that a width that is big enough to print remains
+4. cut all but the outer edge of this curve off
+5. place a copy of this curve offset in the z direction by the platform bottom's height
+6. create a shape between the two curves (original and copy) with [hull](https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Transformations#hull)
+7. cut again, keeping only the portion below the platform's bottom
+8. and cut one more time to curve the inner vertical to match the outer vertical
+![North Fancy](images/north-fancy.png)
+
+
 ## North Curve: Supports
-On the off chance it’s not good enough we can ensure the platform can take adjustments.  As you may have noticed in the earlier picture, the circle (green) is in front of the north curve (orange).  We’ll build the mounting hardware relative to the point on the parabola (pink) so adjustments will just screw in to replace the old part.  Use the washer diameter to limit the printed horizontal support structure.  It doesn’t add value if it’s not being held by something.
+The edge of the circle now lines up with the fancy north curve.  But on the off chance it’s not good enough we can ensure the platform can take adjustments.  We’ll build the mounting support relative to the point on the parabola (pink) so adjustments will just screw in to replace the old part.  Use the washer diameter to limit the printed horizontal support structure.  It doesn’t add value if it’s not being held by something.
 ![North Support](images/north-support.png)
