@@ -1,20 +1,152 @@
 include <bearing.scad>
 
-image="1"; // [debug:debug,1:Earth,2:Earth with Cone,4:Basic Platform,5:Platform with South Pin,3:Cone,6:Cone with Basic Platform,7:Cone with Circle,8:Cone with Circle and Basic Platform,9:Cone Circle Basic Platform with Point,10:Updated Platform,11:North Rectangle,12:North Curve,13:North Fancy,18:North Support,30:Platform Bottom,31:Bottom Bearings]
+image="1"; // [debug:debug,earth:Earth,earth_cone:Earth with Cone,cone:Cone,eqpt_triangle:Basic Platform,eqpt_bs:Platform with South Pin,cone_circle:Cone with Circle,eqpt_circle_platform:Cone with Circle and Basic Platform,eqpt_circle_platform_point:Cone Circle Basic Platform with Point,eqpt_updated:Updated Platform,eqpt_bn_rectangle:North Rectangle,eqpt_bn_curve:North Curve,eqpt_bn_fancy:North Fancy,eqpt_bn_support:North Support,eqpb:Platform Bottom]
+
+/*
+Objects:
+- cone (cone)
+- axis (axis)
+- platform, top (eqpt)
+- platform, bottom (eqpb)
+- north curve 
+- north bearing
+- north support
+- south pin (bs)
+- south pivot (pivot)
+
+Coordinates all relative to [0,0,0].
+Rotations all in an array [x,y,z].
+
+Thickness of objects called "height".
+
+Variable types:
+- input: values that user provides, are copied to other variables
+- single value: special case, rare use
+- coordinate, xyz: [x,y,z] relative to [0,0,0]
+- rotation, rot: [x,y,z]
+- dimensions, dim: [x,y,z]
+- cylinder, cyl: [h,d], note use of diameter
+
+All objects created from modules can be moved using the given coordinates which are relative to [0,0,0].
+
+Variable names are
+<object short name>_<variable type short name>
+
+Order of translation and rotation is subject to the individual part.
+
+*/
+
+// Latitude
+input_latitude=35.5;
+input_south_bearing_height=50;
+input_south_bearing_diameter=10;
+input_print_bed=[250,250,250];
+
+// Estimated dimensions of platforms (top and bottom).
+input_platform_xyz=[800,800,18];
+// Distance between the top and bottom platforms.
+input_platform_gap=160;
+
+input_north_curve_thickness=20;
+
+input_north_support_thickness=20;
+
+input_north_washer_diameter=50;
+
+input_north_bolt_diameter=10;
+
+input_south_washer_diameter=50;
 
 /* [Hidden] */
 $fn=200;
 
+ORIGIN=[0,0,0];
 
+/*
 $vpt = [235, 756, 347];
 $vpr = [62,0,111];
 $vpd = 1750;
+*/
 
-T=35.5;
+// Helper index values.
+// Makes it easier to read and allows it to be changed.
+i_h=0;
+i_d=1;
+i_x=0;
+i_y=1;
+i_z=2;
 
-print_x=250;
-bs_h=50;
-bs_d=10;
+// Convert input variables into more structured variables
+
+// very special var name, just don't want to type something long
+T=input_latitude;
+
+print_x=max(input_print_bed[i_x],input_print_bed[i_y],input_print_bed[i_z]);
+
+earth_xyz=[0,500,150];
+earth_rot=[0,0,180];
+earth_r=250;
+
+eqpt_dim=input_platform_xyz;
+
+// build south bridge data before eqpt xyz
+bs_cyl=[input_south_bearing_height,input_south_bearing_diameter];
+bs_xyz=[0,(input_platform_gap-bs_cyl[i_h])/tan(T),input_platform_gap-bs_cyl[i_h]];
+bs_rot=[0,0,0];
+
+eqpt_xyz=[
+    -eqpt_dim[i_x]/2,
+    bs_xyz[i_y]-input_south_washer_diameter/2,
+    input_platform_gap
+];
+
+eqpb_dim=input_platform_xyz;
+eqpb_xyz=[eqpt_xyz[i_x],eqpt_xyz[i_y],-eqpb_dim[i_z]];
+
+bn_dim=[print_x,input_north_curve_thickness,eqpt_xyz[i_z]];
+
+// the north support is big enough for the washers that can fit, no more
+bns_dim=[
+    floor(print_x/input_north_washer_diameter)*input_north_washer_diameter,
+    input_north_washer_diameter+bn_dim[i_y],
+    input_north_support_thickness
+];
+
+
+
+// special case variables for cone
+cone_cyl=[eqpt_dim[i_y]*1.1,eqpt_dim[i_y]*1.1*tan(T)*2];
+cone_rot=[T-90,0,0];
+cone_xyz=[0,0,0];
+
+axis_xyz=cone_xyz;
+axis_cyl=[eqpt_dim[i_y]*2,4];
+axis_rot=cone_rot;
+
+circle_hyp=eqpt_dim[i_y]+eqpt_xyz[i_y];
+circle_cyl=[bn_dim[i_y],circle_hyp*sin(T)*2];
+circle_xyz=[0,circle_hyp,0];
+circle_rot=[T,0,0];
+
+// calculate where circle meets parabola
+c_r=circle_cyl[i_d]/2;
+c_h=circle_hyp*cos(T);
+
+circleParabolaPoint_xyz=[
+    sqrt(pow(circle_cyl[i_d]/2,2)-pow(circle_cyl[i_d]/2-eqpt_xyz[i_z]/cos(T),2)),
+    eqpt_dim[i_y]+eqpt_xyz[i_y]-eqpt_xyz[i_z]*tan(T),
+    eqpt_xyz[i_z]
+];
+
+// angle of rotation for north bridge (rectangle/curve) is from the edge of eqpt near parabola/circle to the "rod"
+bn_rot=[0,0,atan((eqpt_dim[i_y]+eqpt_xyz[i_y]-circleParabolaPoint_xyz[i_y])/eqpt_dim[i_x]/2)];
+bn_xyz=[eqpt_dim[i_x]/2,circleParabolaPoint_xyz[i_y],0];
+
+// TODO figure our bn_rot! wtf man...
+debug(bn_rot);
+
+bs_h=input_south_bearing_height;
+bs_d=input_south_bearing_diameter;
 bs_eqp_y=50;
 eqp_x=800;
 eqp_y=800;
@@ -31,19 +163,6 @@ cone_bs_y=bs_y-bs_eqp_y+bs_d/2;
 bn_y=eqp_y+bs_y-(bs_eqp_y-bs_d/2);
 cone_bn_y=bn_y;
 
-cone_h=eqp_y*1.1;
-cone_r1=0;
-cone_r2=cone_h*tan(T);
-
-c_hyp=bn_y;
-c_r=c_hyp*sin(T);
-c_h=c_hyp*cos(T);
-
-c_eqp_x=sqrt(pow(c_r,2)-pow(c_r-eqp_z/cos(T),2));
-c_eqp_y=bn_y-eqp_z*tan(T);
-c_eqp_z=eqp_z; 
-
-e_r=250;
 
 
 bearing_ir_od=21;
@@ -61,17 +180,16 @@ bearing_s_h=10.4;
  */
 function midpoint(r,x1,y1,x2,y2) = [r*sin(atan(x1/y1)+(atan(x2/y2)-atan(x1/y1))/2),r*cos(atan(x1/y1)+(atan(x2/y2)-atan(x1/y1))/2)];
 
-module axis() {
-    r2=eqp_x*tan(T);
-
+module axis(cyl=axis_cyl,xyz=axis_xyz,rot=axis_rot) {
     color("blue")
-    rotate([T-90,0,0])
-    cylinder(r=5,h=eqp_x*2);
+    rotate(rot)
+    translate(xyz)
+    cylinder(r=cyl[i_d]/2,h=cyl[i_h]);
 }
 
-module earth() {
-    rotate([0,0,180])
-    union()
+module earth(xyz=earth_xyz,rot=earth_rot) {
+    translate(xyz)
+    rotate(rot)
     {
         // scale by trial and error
         scale(6.32)
@@ -79,35 +197,37 @@ module earth() {
         import("../stl/geody_earthmap.stl");
         
         color("CornflowerBlue")
-        sphere(r=e_r);
+        sphere(r=earth_r);
+
+        // axis w/o rotation
+        axis(rot=rot);
     }
-    rotate([90-T,0,0])
-    axis();
 }
 
 // the shape used to cut the top off the cone, for reuse
 module cone_cut() {
     color("yellow")
-    translate([-eqp_x,0,eqp_z])
-    cube([cone_h*2,cone_h*2,cone_h*2]);
+    translate([-eqpt_dim[i_x],0,eqpt_xyz[i_z]])
+    cube([cone_cyl[i_h]*2,cone_cyl[i_h]*2,cone_cyl[i_h]*2]);
 }
 
-module cone(solid=true,cut=false,t=1) {
+module cone(cyl=cone_cyl,xyz=cone_xyz,rot=cone_rot,solid=true,cut=false,t=1) {
 
     color("yellow",t)
+    translate(xyz)
     difference() 
     {
 
-        rotate([T-90,0,0])
+        rotate(rot)
         difference()
         {
-            cylinder(r1=cone_r1,r2=cone_r2,cone_h);
+            cylinder(r1=0,r2=cyl[i_d]/2,cyl[i_h]);
 
             if (solid) {
                 // noop
             } else {
                 translate([0,0,1])
-                cylinder(r1=cone_r1,r2=cone_r2,cone_h);
+                cylinder(r1=0,r2=cyl[i_d]/2,cyl[i_h]);
             }
             
         }
@@ -117,44 +237,37 @@ module cone(solid=true,cut=false,t=1) {
     }
 }
 
-module earth_cone() {
-    earth();
+module earth_cone(xyz=earth_xyz,rot=earth_rot) {
+    earth(xyz=xyz,rot=rot);
     
     // find point cone intersects.. because we can
     
-    // adjust the "e_r" which is actually the radius of the blue sphere
-    e_cone_r = e_r * 1.02;
-    e_cone_hyp = e_cone_r/cos(T);
-    e_cone_x = e_cone_r*cos(T);
-    e_cone_z = e_cone_r*sin(T);
+    // adjust the "earth_r" which is actually the radius of the blue sphere, so that it's outside of the "land" parts of earth
+    earth_cone_r = earth_r * 1.02;
+    
+    earth_cone_xyz=[xyz[i_x]+earth_cone_r*cos(T),xyz[i_y],xyz[i_z]+earth_cone_r*sin(T)];
+    earth_cone_rot=[0,0,0];
 
+    // scale down some things for the cone and axis
     s=0.1;
     
-    translate([e_cone_x,0,e_cone_z])
-    rotate([90-T,0,0])
-    {
-        scale(s)
-        cone(solid=false);
+    // scale cone by "s"
+    cone(cyl=cone_cyl*s,xyz=earth_cone_xyz,rot=earth_cone_rot,solid=false);
 
-        axis();
-    }
+    // scale only axis height by "s"
+    axis(cyl=[axis_cyl[i_h]*s,axis_cyl[i_d]],xyz=earth_cone_xyz,rot=earth_cone_rot);
 }
 
-
 // circle along axis of cone
-module circle(cut=false,rod=false,h=1,r=c_r,hyp=c_hyp,axis_offset=c_h) {
-    if (rod) {
-        color("red")
-        translate([0,hyp,0])
-        cylinder(r=5,h=eqp_z);
-    }
-    
+module north_circle(cyl=circle_cyl,xyz=circle_xyz,rot=circle_rot,cut=false) {
     color("lime")
     difference()
     {
-        rotate([T-90,0,0])
-        translate([0,0,axis_offset-h])
-        cylinder(r=r,h=h);
+        translate(xyz)
+        rotate(rot)
+        translate([0,0,cyl[i_d]/2])
+        rotate([90,0,0])
+        cylinder(d=cyl[i_d],h=cyl[i_h]);
         
         if (cut) {
             cone_cut();
@@ -162,83 +275,57 @@ module circle(cut=false,rod=false,h=1,r=c_r,hyp=c_hyp,axis_offset=c_h) {
     }
 }
 
-module platform_trangle() {
-    R=atan(eqp_y/eqp_x/2);
+module eqpt_triangle(xyz=eqpt_xyz,dim=eqpt_dim) {
+    R=atan(dim[i_y]/dim[i_x]/2);
     
     color("SaddleBrown")
+    translate(xyz)
     difference()
     {
-        translate([-eqp_x/2,0,0])
-        cube([eqp_x,eqp_y,eqp_h]);
+        cube([dim[i_x],dim[i_y],dim[i_z]]);
         
-        translate([0,0,-eqp_h/2])
+        translate([dim[i_x]/2,0,-dim[i_z]/2])
         rotate([0,0,-R])
-        cube([eqp_x*2,eqp_y*2,eqp_h*2]);
+        cube([dim[i_x]*2,dim[i_y]*2,dim[i_z]*2]);
 
-        translate([0,0,-eqp_h/2])
+        translate([dim[i_x]/2,0,-dim[i_z]/2])
         rotate([0,0,90+R])
-        cube([eqp_x*2,eqp_y*2,eqp_h*2]);
+        cube([dim[i_x]*2,dim[i_y]*2,dim[i_z]*2]);
     }
 }
 
-module bridge_south() {
+module eqpt_updated(xyz=eqpt_xyz,dim=eqpt_dim) {
+    // from the intersection of circle and parabola
+    P=circleParabolaPoint_xyz;
+    
+    // find the angle towards the center of the cone (where top of "red rod" is in images)
+    R=atan(dim[i_x]/2/(P[i_y]-eqpt_xyz[i_y]));
+    debug(R);
+    
+    color("SaddleBrown")
+    translate(xyz)
+    difference()
+    {
+        cube([dim[i_x],eqp_y,eqp_h]);
+        color("pink")
+        translate([dim[i_x]/2,0,-dim[i_z]/2])
+        rotate([0,0,-R])
+        cube([dim[i_x]*2,dim[i_y]*2,dim[i_z]*2]);
+
+        translate([dim[i_x]/2,0,-dim[i_z]/2])
+        rotate([0,0,90+R])
+        cube([dim[i_x]*2,dim[i_y]*2,dim[i_z]*2]);
+    }
+}
+module bridge_south(xyz=bs_xyz,cyl=bs_cyl,rot=bs_rot) {
     color("Magenta")
-    translate([0,bs_eqp_y-bs_d/2,-bs_h])
-    cylinder(d=bs_d,h=bs_h);
+    translate(xyz)
+    cylinder(d=cyl[i_d],h=cyl[i_h]);
 }
 
 
-module platform_circle_eqp_intersect() {
-    color("pink")
-    translate([c_eqp_x,c_eqp_y,c_eqp_z])
-    sphere(r=10);
-}
 
-module platform_updated() {
-    o=c_eqp_x;
-    a=c_hyp-cone_bs_y-(bn_y-c_eqp_y);
-    R=atan(o/a);
-    
-    color("SaddleBrown")
-    difference()
-    {
-        translate([-eqp_x/2,0,0])
-        cube([eqp_x,eqp_y,eqp_h]);
-        
-        translate([0,0,-eqp_h/2])
-        rotate([0,0,-R])
-        cube([eqp_x*2,eqp_y*2,eqp_h*2]);
-
-        translate([0,0,-eqp_h/2])
-        rotate([0,0,90+R])
-        cube([eqp_x*2,eqp_y*2,eqp_h*2]);
-    }
-}
-
-module north_rectangle(support=false) {
-    a=c_eqp_x;
-    o=cone_bn_y-c_eqp_y;
-    W=atan(o/a);
-    
-    color("Orange")
-    translate([0,cone_bn_y,0])
-    rotate([0,0,-W])
-    translate([c_eqp_x-print_x,0,0])
-    cube([print_x,bn_h,eqp_z]);
-}
-
-module north_curve() {
-    color("Orange")
-    intersection() 
-    {
-        color("Orange")
-        cone(solid=true,cut=false);
-
-        north_rectangle();
-    }
-}
-
-module north_fancy_base() {
+module bn_fancy_base() {
     // find the intersection of the circle and extrude it in the z direction to have a shape that can connect to the support
     
     difference()
@@ -257,7 +344,7 @@ module north_fancy_base() {
     }
 }
 
-module north_fancy_hull() {
+module bn_fancy_hull() {
     // this is slow.  super slow.  too bad eh?
     hull() 
     {
@@ -270,37 +357,47 @@ module north_fancy_hull() {
     }
 }
 
-module north_fancy(support=false) {
-    color("purple")
-    
-    difference() 
-    {
-        union() {
-            // base is the hulled fancy thing
-            north_fancy_hull();
 
-        }
-        // cut off the inner curve by using the outer curve
-        // scale in x and z a little bit
-        // and translate it -x and -z just a touch
-        translate([-c_eqp_x*0.01,-bn_h,0])        
-        scale([1.01,1,1.01])
-        north_fancy_hull();
-        
-        // cut the top off, same level as the cone cut
-        cone_cut();
-        
-    }
-    if (support) {
-        difference()
+module bridge_north(xyz=bn_xyz,rot=bn_rot,dim=bn_dim,type="rectangle") {
+    // this one is a little different.  we want to offset for rotation and translation relative to the outer north point
+    if (type == "rectangle") {
+        color("Orange")
+        translate(xyz)
+        rotate(rot)
+        translate([-dim[i_x],-dim[i_y],0])
+        cube(dim);
+    } else if (type == "curve") {
+        color("Orange")
+        intersection() 
         {
-            // add the support
-            north_support(c="purple");
-            // cut the holes
-            north_holes();
-        }    
-    }
+            color("Orange")
+            cone(solid=true,cut=false);
 
+            north_rectangle();
+        }
+    } else if (type == "fancy") {
+        color("purple")
+        
+        difference() 
+        {
+            union() {
+                // base is the hulled fancy thing
+                north_fancy_hull();
+
+            }
+            // cut off the inner curve by using the outer curve
+            // scale in x and z a little bit
+            // and translate it -x and -z just a touch
+            translate([-c_eqp_x*0.01,-bn_h,0])        
+            scale([1.01,1,1.01])
+            north_fancy_hull();
+            
+            // cut the top off, same level as the cone cut
+            cone_cut();
+            
+        }
+
+    }
 }
 
 module north_curve_bearing_touch() {
@@ -365,56 +462,29 @@ module north_support(c="white") {
  
 
 
-module image_earth() {
-    translate([0,500,150])
-    earth();
-}
-
-module image_earth_cone() {
-    translate([0,500,150])
-    earth_cone();
-}
-
-module image_platform() {
-    platform_trangle();
-}
-
-module image_cone() {
-    h=eqp_y;
-    cone(solid=false);
-    axis();
-}
-
-module image_platform_bs() {
-    platform_trangle();
-    bridge_south();
-}
-
 module image_platform_cone_intersection() {
     cone(solid=false,cut=true);
     axis();
-    
-    translate([0,cone_bs_y,bs_z+bs_h])
-    {
-        platform_trangle();
-        bridge_south();
-    }
+    eqpt_triangle();
+    bridge_south();
 }
 
 module image_circle() {
     cone(solid=false,cut=true);
     axis();
-    circle(cut=false,rod=false);
+    circle(cut=false);
+    
 }
 
 module image_circle_cut() {
     cone(solid=false,cut=true);
     axis();
-    circle(cut=true,rod=true);
+    circle(cut=true);
+    circle_eqpt_rod();
 
     translate([0,cone_bs_y,bs_z+bs_h])
     {
-        platform_trangle();
+        eqpt_triangle();
         bridge_south();
     }
 }
@@ -425,31 +495,7 @@ module image_platform_circle_eqp_intersect() {
     platform_circle_eqp_intersect();
 }
 
-module image_platform_updated() {
-    
-    cone(solid=false,cut=true);
-    axis();
-    circle(cut=true,rod=true);
 
-    translate([0,cone_bs_y,bs_z+bs_h])
-    {
-        platform_updated();
-        bridge_south();
-    }
-    
-    platform_circle_eqp_intersect();
-}
-
-
-module image_north_rectangle() {
-    cone(solid=false,cut=true);
-    axis();
-    circle(cut=true,rod=true);
-
-    platform_circle_eqp_intersect();
-    
-    north_rectangle();
-}
 
 module image_north_curve() {
     axis();
@@ -533,52 +579,119 @@ module image_platform_bottom_bearing() {
     platform_bottom(bearing=true);
 }
 
-if (image == "1") {
-    image_earth();
-} else if (image == "2") {
-    image_earth_cone();
-} else if (image == "4") {
-    image_platform();
-} else if (image == "3") {
-    image_cone();
-} else if (image == "5") {
-    image_platform_bs();
-} else if (image == "6") {
-    image_platform_cone_intersection();
-} else if (image == "7") {
-    image_circle();
-} else if (image == "8") {
-    image_circle_cut();
-} else if (image == "9") {
-    image_platform_circle_eqp_intersect();
-} else if (image == "10") {
-    image_platform_updated();
-} else if (image == "11") {
-    image_north_rectangle();
-} else if (image == "12") {
+if (image == "earth") {
+    earth();
+} else if (image == "earth_cone") {
+    earth_cone();
+} else if (image == "cone") {
+    cone(solid=false);
+    axis();
+} else if (image == "eqpt_triangle") {
+    eqpt_triangle();
+    cone(solid=false,cut=true);
+    axis();
+} else if (image == "eqpt_bs") {
+    eqpt_triangle();
+    bridge_south();
+    cone(solid=false,cut=true);
+    axis();
+} else if (image == "cone_circle") {
+    cone(solid=false,cut=true);
+    north_circle();
+    axis();    
+} else if (image == "eqpt_circle_platform") {
+    eqpt_triangle();
+    bridge_south();
+    cone(solid=false,cut=true);
+    axis();
+    north_circle(cyl=[1,circle_cyl[i_d]],cut=true);
+    
+    // show the "rod"
+    color("red")
+    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+} else if (image == "eqpt_circle_platform_point") {
+    eqpt_triangle();
+    bridge_south();
+    cone(solid=false,cut=true);
+    axis();
+    north_circle(cut=true);
+    
+    // show the "rod"
+    color("red")
+    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    
+    // show where circle meets parabola
+    color("pink")
+    debug_point(circleParabolaPoint_xyz);
+    
+} else if (image == "eqpt_updated") {
+    eqpt_updated();
+    bridge_south();
+    cone(solid=false,cut=true);
+    axis();
+    north_circle(cut=true);
+
+    // show the "rod"
+    color("red")
+    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    
+    // show where circle meets parabola
+    color("pink")
+    debug_point(circleParabolaPoint_xyz);
+} else if (image == "eqpt_bn_rectangle") {
+    cone(solid=false,cut=true);
+    axis();
+    north_circle(cut=true);
+
+    bridge_north(type="rectangle");
+    
+    // show the "rod"
+    color("red")
+    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    
+    // show where circle meets parabola
+    color("pink")
+    debug_point(circleParabolaPoint_xyz);
+} else if (image == "eqpt_bn_curve") {
     image_north_curve();
-} else if (image == "13") {
+} else if (image == "eqpt_bn_fancy") {
     image_north_fancy();
-} else if (image == "18") {
+} else if (image == "eqpt_bn_support") {
     image_north_support();
-} else if (image == "30") {
+} else if (image == "eqpb") {
     image_platform_bottom();
 } else if (image == "31") {
     image_platform_bottom_bearing();
 } else if (image == "debug") {
-    // get midpoint between 
+    bridge_south();
+    eqpt_triangle();
+    axis();
+    cone(solid=false,cut=true);
+    circle(cut=true);
     
-    circle();
-    north_curve();
-    platform_bottom();
 }
 
-module debug_y(y,t) {
-
-    translate(t)
+module debug_y(xyz=ORIGIN,value) {
+    translate(xyz)
     rotate([-90,0,0])
-    cylinder(d=10,h=y);
+    cylinder(d=10,h=value);
 }
 
-module debug_x(x,z) {
+module debug_x(xyz=ORIGIN,value) {
+    translate(xyz)
+    rotate([0,0,90])
+    cylinder(d=10,h=value);
+}
+
+module debug_point(xyz=ORIGIN) {
+    translate(xyz)
+    sphere(d=25);
+}
+
+module debug(thing) {
+    // test a value here
+    translate([eqpt_dim[i_x]/2,eqpt_xyz[i_y],0])
+    rotate([0,0,90])
+    scale(5)
+    text(str(thing));
 }
