@@ -41,8 +41,23 @@ And #3 will ensure what is being built actually fits the telescope.  Seems obvio
 ## Designing the Model
 I use OpenSCAD.  All the images taken are from this tool.  The [model used is included](../src/equatorial-platform-docs.scad) and each picture can be reviewed by picking the “image” parameter.  The constant input values are also available for editing.
 
+There are some lessons I have learned doing this project that I want to share.  As I figure out better ways to do the models I have started over or made major revisions.  Starting over is easier for me but that's up to the individual.  I'm on revision 6 as of writing these tips..
 
+1. pick a point of reference for all shapes
+1. do translations from this point of reference
+1. do rotations from this point of reference
+1. use a standard naming convention for your variables
+1. use modules to create intermediate or final shapes
+1. use consistent module arguments
+1. do your model in steps you can reference later (you want to know what you did before you tweaked it, i.e. why I have a "fancy" north curve)
+1. for each of the steps, use a parameter to select what to render
+1. use a prefix for user supplied variables that you will never use for hidden variables
 
+For this model:
+* [0,0,0] is `ORIGIN`, the point of reference for all things
+* I decided to put my build along the Y axis.. probably X is more common (better?) choice but that is where I am
+* I build standard variables OUTSIDE of modules and pass them in as default arguments.
 
+Using default agruments allows for manipulation by passing new arguments without having to write a new module or manipulate the output of a module.  It's **so** much cleaner!
 
-
+I have put all of my standards into the model file used for this and since it might change I don't want to recreate it here.  See [the docs model initial comments](../src/equatorial-platform-docs.scad#L3-L43) (note this may not be exactly right as I am still tweaking the model).

@@ -1,16 +1,14 @@
 include <bearing.scad>
 
-image="1"; // [debug:debug,earth:Earth,earth_cone:Earth with Cone,cone:Cone,eqpt_triangle:Basic Platform,eqpt_bs:Platform with South Pin,cone_circle:Cone with Circle,eqpt_circle_platform:Cone with Circle and Basic Platform,eqpt_circle_platform_point:Cone Circle Basic Platform with Point,eqpt_updated:Updated Platform,eqpt_bn_rectangle:North Rectangle,eqpt_bn_curve:North Curve,eqpt_bn_fancy:North Fancy,eqpt_bn_support:North Support,eqpb:Platform Bottom]
-
 /*
 Objects:
 - cone (cone)
 - axis (axis)
 - platform, top (eqpt)
 - platform, bottom (eqpb)
-- north curve 
+- north curve (bn)
 - north bearing
-- north support
+- north support (bns)
 - south pin (bs)
 - south pivot (pivot)
 
@@ -34,7 +32,18 @@ Variable names are
 
 Order of translation and rotation is subject to the individual part.
 
+Modules take arguments, order doesn't matter.
+- dim: the cube dimensions of the shape (cannot also have cyl)
+- cyl: the cylinderacle dimensions of the shape (cannot also have dim)
+- xyz: the translation for the final shape created by the module
+- rot: the rotation for the final shape created by the module
+- t: transparency for the object
+- s: scale for the object
+
 */
+
+image="1"; // [debug:debug,earth:Earth,earth_cone:Earth with Cone,cone:Cone,eqpt_triangle:Basic Platform,eqpt_bs:Platform with South Pin,cone_circle:Cone with Circle,eqpt_circle_platform:Cone with Circle and Basic Platform,eqpt_circle_platform_point:Cone Circle Basic Platform with Point,eqpt_updated:Updated Platform,eqpt_bn_rectangle:North Rectangle,eqpt_bn_curve:North Curve,eqpt_bn_fancy:North Fancy,eqpt_bn_support:North Support,eqpb:Platform Bottom]
+
 
 // Latitude
 input_latitude=35.5;
@@ -60,13 +69,11 @@ input_south_washer_diameter=50;
 /* [Hidden] */
 $fn=200;
 
-ORIGIN=[0,0,0];
-
-/*
 $vpt = [235, 756, 347];
 $vpr = [62,0,111];
 $vpd = 1750;
-*/
+
+ORIGIN=[0,0,0];
 
 // Helper index values.
 // Makes it easier to read and allows it to be changed.
@@ -124,7 +131,7 @@ axis_cyl=[eqpt_dim[i_y]*2,4];
 axis_rot=cone_rot;
 
 circle_hyp=eqpt_dim[i_y]+eqpt_xyz[i_y];
-circle_cyl=[bn_dim[i_y],circle_hyp*sin(T)*2];
+circle_cyl=[0.1/*bn_dim[i_y]*/,circle_hyp*sin(T)*2];
 circle_xyz=[0,circle_hyp,0];
 circle_rot=[T,0,0];
 
@@ -137,13 +144,11 @@ circleParabolaPoint_xyz=[
     eqpt_dim[i_y]+eqpt_xyz[i_y]-eqpt_xyz[i_z]*tan(T),
     eqpt_xyz[i_z]
 ];
+P=circleParabolaPoint_xyz;
 
 // angle of rotation for north bridge (rectangle/curve) is from the edge of eqpt near parabola/circle to the "rod"
-bn_rot=[0,0,atan((eqpt_dim[i_y]+eqpt_xyz[i_y]-circleParabolaPoint_xyz[i_y])/eqpt_dim[i_x]/2)];
-bn_xyz=[eqpt_dim[i_x]/2,circleParabolaPoint_xyz[i_y],0];
-
-// TODO figure our bn_rot! wtf man...
-debug(bn_rot);
+bn_rot=[0,0,-atan((eqpt_dim[i_y]+eqpt_xyz[i_y]-circleParabolaPoint_xyz[i_y])/(eqpt_dim[i_x]/2))];
+bn_xyz=[eqpt_dim[i_x]/2,P[i_y],0];
 
 bs_h=input_south_bearing_height;
 bs_d=input_south_bearing_diameter;
@@ -180,8 +185,8 @@ bearing_s_h=10.4;
  */
 function midpoint(r,x1,y1,x2,y2) = [r*sin(atan(x1/y1)+(atan(x2/y2)-atan(x1/y1))/2),r*cos(atan(x1/y1)+(atan(x2/y2)-atan(x1/y1))/2)];
 
-module axis(cyl=axis_cyl,xyz=axis_xyz,rot=axis_rot) {
-    color("blue")
+module axis(cyl=axis_cyl,xyz=axis_xyz,rot=axis_rot,t=0.5) {
+    color("blue",t)
     rotate(rot)
     translate(xyz)
     cylinder(r=cyl[i_d]/2,h=cyl[i_h]);
@@ -200,18 +205,19 @@ module earth(xyz=earth_xyz,rot=earth_rot) {
         sphere(r=earth_r);
 
         // axis w/o rotation
-        axis(rot=rot);
+        axis(rot=rot,t=1);
     }
 }
 
 // the shape used to cut the top off the cone, for reuse
-module cone_cut() {
+module cone_cut(xyz=[-eqpt_dim[i_x],0,eqpt_xyz[i_z]],dim=[cone_cyl[i_h]*2,cone_cyl[i_h]*2,cone_cyl[i_h]*2],rot=ORIGIN) {
     color("yellow")
-    translate([-eqpt_dim[i_x],0,eqpt_xyz[i_z]])
-    cube([cone_cyl[i_h]*2,cone_cyl[i_h]*2,cone_cyl[i_h]*2]);
+    translate(xyz)
+    rotate(rot)
+    cube(dim);
 }
 
-module cone(cyl=cone_cyl,xyz=cone_xyz,rot=cone_rot,solid=true,cut=false,t=1) {
+module cone(cyl=cone_cyl,xyz=cone_xyz,rot=cone_rot,solid=true,cut=false,t=0.5) {
 
     color("yellow",t)
     translate(xyz)
@@ -252,15 +258,15 @@ module earth_cone(xyz=earth_xyz,rot=earth_rot) {
     s=0.1;
     
     // scale cone by "s"
-    cone(cyl=cone_cyl*s,xyz=earth_cone_xyz,rot=earth_cone_rot,solid=false);
+    cone(cyl=cone_cyl*s,xyz=earth_cone_xyz,rot=earth_cone_rot,solid=false,t=1);
 
     // scale only axis height by "s"
-    axis(cyl=[axis_cyl[i_h]*s,axis_cyl[i_d]],xyz=earth_cone_xyz,rot=earth_cone_rot);
+    axis(cyl=[axis_cyl[i_h]*s,axis_cyl[i_d]],xyz=earth_cone_xyz,rot=earth_cone_rot,t=1);
 }
 
 // circle along axis of cone
-module north_circle(cyl=circle_cyl,xyz=circle_xyz,rot=circle_rot,cut=false) {
-    color("lime")
+module north_circle(cyl=circle_cyl,xyz=circle_xyz,rot=circle_rot,cut=false,t=0.5) {
+    color("lime",t)
     difference()
     {
         translate(xyz)
@@ -294,15 +300,13 @@ module eqpt_triangle(xyz=eqpt_xyz,dim=eqpt_dim) {
     }
 }
 
-module eqpt_updated(xyz=eqpt_xyz,dim=eqpt_dim) {
-    // from the intersection of circle and parabola
-    P=circleParabolaPoint_xyz;
+module eqpt_updated(xyz=eqpt_xyz,dim=eqpt_dim,t=1) {
+    // from the intersection of circle and parabola (point P)
     
     // find the angle towards the center of the cone (where top of "red rod" is in images)
     R=atan(dim[i_x]/2/(P[i_y]-eqpt_xyz[i_y]));
-    debug(R);
     
-    color("SaddleBrown")
+    color("SaddleBrown",t)
     translate(xyz)
     difference()
     {
@@ -317,7 +321,7 @@ module eqpt_updated(xyz=eqpt_xyz,dim=eqpt_dim) {
         cube([dim[i_x]*2,dim[i_y]*2,dim[i_z]*2]);
     }
 }
-module bridge_south(xyz=bs_xyz,cyl=bs_cyl,rot=bs_rot) {
+module bearing_south(xyz=bs_xyz,cyl=bs_cyl,rot=bs_rot) {
     color("Magenta")
     translate(xyz)
     cylinder(d=cyl[i_d],h=cyl[i_h]);
@@ -357,15 +361,19 @@ module bn_fancy_hull() {
     }
 }
 
+module bn_rectangle(xyz,rot,dim) {
+    translate(xyz)
+    rotate(rot)
+    translate([-dim[i_x],0,0])
+    cube(dim);
+}
+
 
 module bridge_north(xyz=bn_xyz,rot=bn_rot,dim=bn_dim,type="rectangle") {
     // this one is a little different.  we want to offset for rotation and translation relative to the outer north point
     if (type == "rectangle") {
         color("Orange")
-        translate(xyz)
-        rotate(rot)
-        translate([-dim[i_x],-dim[i_y],0])
-        cube(dim);
+        bn_rectangle(xyz=xyz,rot=rot,dim=dim);
     } else if (type == "curve") {
         color("Orange")
         intersection() 
@@ -373,7 +381,7 @@ module bridge_north(xyz=bn_xyz,rot=bn_rot,dim=bn_dim,type="rectangle") {
             color("Orange")
             cone(solid=true,cut=false);
 
-            north_rectangle();
+            bn_rectangle(xyz=xyz,rot=rot,dim=dim);
         }
     } else if (type == "fancy") {
         color("purple")
@@ -466,7 +474,7 @@ module image_platform_cone_intersection() {
     cone(solid=false,cut=true);
     axis();
     eqpt_triangle();
-    bridge_south();
+    bearing_south();
 }
 
 module image_circle() {
@@ -485,7 +493,7 @@ module image_circle_cut() {
     translate([0,cone_bs_y,bs_z+bs_h])
     {
         eqpt_triangle();
-        bridge_south();
+        bearing_south();
     }
 }
 
@@ -592,7 +600,7 @@ if (image == "earth") {
     axis();
 } else if (image == "eqpt_bs") {
     eqpt_triangle();
-    bridge_south();
+    bearing_south();
     cone(solid=false,cut=true);
     axis();
 } else if (image == "cone_circle") {
@@ -601,43 +609,38 @@ if (image == "earth") {
     axis();    
 } else if (image == "eqpt_circle_platform") {
     eqpt_triangle();
-    bridge_south();
+    bearing_south();
     cone(solid=false,cut=true);
     axis();
     north_circle(cyl=[1,circle_cyl[i_d]],cut=true);
     
     // show the "rod"
-    color("red")
-    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    debug_z(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
 } else if (image == "eqpt_circle_platform_point") {
     eqpt_triangle();
-    bridge_south();
+    bearing_south();
     cone(solid=false,cut=true);
     axis();
     north_circle(cut=true);
     
     // show the "rod"
-    color("red")
-    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    debug_z(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
     
     // show where circle meets parabola
-    color("pink")
-    debug_point(circleParabolaPoint_xyz);
+    debug_point(circleParabolaPoint_xyz,c="hotpink");
     
 } else if (image == "eqpt_updated") {
     eqpt_updated();
-    bridge_south();
+    bearing_south();
     cone(solid=false,cut=true);
     axis();
     north_circle(cut=true);
 
     // show the "rod"
-    color("red")
-    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    debug_z(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
     
     // show where circle meets parabola
-    color("pink")
-    debug_point(circleParabolaPoint_xyz);
+    debug_point(circleParabolaPoint_xyz,c="hotpink");
 } else if (image == "eqpt_bn_rectangle") {
     cone(solid=false,cut=true);
     axis();
@@ -646,14 +649,21 @@ if (image == "earth") {
     bridge_north(type="rectangle");
     
     // show the "rod"
-    color("red")
-    debug_x(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
+    debug_z(xyz=[0,eqpt_xyz[i_y]+eqpt_dim[i_y],0],value=eqpt_xyz[i_z]);
     
-    // show where circle meets parabola
-    color("pink")
-    debug_point(circleParabolaPoint_xyz);
+    eqpt_updated(t=0.4);
+    bearing_south();
+
+    // show where platform circle/parabola line
+    debug_point(xyz=[bn_xyz[i_x],bn_xyz[i_y],eqpt_xyz[i_z]],d=20);
 } else if (image == "eqpt_bn_curve") {
-    image_north_curve();
+    north_circle(cut=true);
+    cone(solid=false,cut=true,t=0.5);
+    // translate up just a bit for visual color maniuplation
+    s=0.1;
+    translate([0,s,s])
+    bridge_north(type="curve");
+    axis();
 } else if (image == "eqpt_bn_fancy") {
     image_north_fancy();
 } else if (image == "eqpt_bn_support") {
@@ -663,7 +673,7 @@ if (image == "earth") {
 } else if (image == "31") {
     image_platform_bottom_bearing();
 } else if (image == "debug") {
-    bridge_south();
+    bearing_south();
     eqpt_triangle();
     axis();
     cone(solid=false,cut=true);
@@ -671,27 +681,37 @@ if (image == "earth") {
     
 }
 
-module debug_y(xyz=ORIGIN,value) {
+
+module debug_x(xyz=ORIGIN,value,c="red",t=0.5) {
+    color(c,t)
+    translate(xyz)
+    rotate([0,90,0])
+    cylinder(d=10,h=value);
+}
+
+module debug_y(xyz=ORIGIN,value,c="red",t=0.5) {
+    color(c,t)
     translate(xyz)
     rotate([-90,0,0])
     cylinder(d=10,h=value);
 }
 
-module debug_x(xyz=ORIGIN,value) {
+module debug_z(xyz=ORIGIN,value,c="red",t=0.5) {
+    color(c,t)
     translate(xyz)
     rotate([0,0,90])
     cylinder(d=10,h=value);
 }
 
-module debug_point(xyz=ORIGIN) {
+module debug_point(xyz=ORIGIN,d=25,c="red",t=0.5) {
+    color(c,t)
     translate(xyz)
-    sphere(d=25);
+    sphere(d=d);
 }
 
-module debug(thing) {
-    // test a value here
-    translate([eqpt_dim[i_x]/2,eqpt_xyz[i_y],0])
+module debug(xyz=[eqpt_dim[i_x]/2,eqpt_xyz[i_y],0],rot=[0,0,90],value,s=5,c="red",t=0.5) {
+    translate(xyz)
     rotate([0,0,90])
-    scale(5)
-    text(str(thing));
+    scale(s)
+    text(str(value));
 }
